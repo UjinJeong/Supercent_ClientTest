@@ -125,6 +125,9 @@ Canvas (Screen Space - Overlay, 720x1280)
 
 ---
 
+##
+사운드 - Shapeforms Audio Free Sound Effects
+( https://assetstore.unity.com/packages/audio/sound-fx/shapeforms-audio-free-sound-effects-183649 )
 ## 🐛 자주 나오는 오류 해결
 
 | 오류 | 해결 |
