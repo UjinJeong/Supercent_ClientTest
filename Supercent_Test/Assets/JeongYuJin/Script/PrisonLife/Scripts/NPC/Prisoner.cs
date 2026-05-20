@@ -7,6 +7,12 @@ public class Prisoner : MonoBehaviour
     // 죄수 상태 열거형: 자유, 체포, 감방, 작업 중
     public enum PrisonerState { Free, Arrested, InCell, Working }
 
+    [Header("Arrest")]
+    public int minRequiredHandcuffs = 1;
+    public int maxRequiredHandcuffs = 3;
+    // 이 수감자를 체포하는 데 필요한 수갑 수 (스폰 시 랜덤 결정)
+    [HideInInspector] public int requiredHandcuffs;
+
     [Header("Stats")]
     // 현재 상태
     public PrisonerState state = PrisonerState.Free;
@@ -31,6 +37,7 @@ public class Prisoner : MonoBehaviour
 
     void Awake()
     {
+        requiredHandcuffs = Random.Range(minRequiredHandcuffs, maxRequiredHandcuffs + 1);
         agent = GetComponent<NavMeshAgent>();
         if (agent == null)
         {

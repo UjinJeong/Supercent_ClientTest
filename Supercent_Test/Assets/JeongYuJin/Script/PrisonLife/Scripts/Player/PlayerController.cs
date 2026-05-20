@@ -15,6 +15,18 @@ public class PlayerController : MonoBehaviour
     public int maxCarryMoney = 20;         // 최대 들고 다닐 수 있는 돈 묶음 수
     public float moneyStackVerticalSpacing = 0.05f;
 
+    [Header("Rock Stack")]
+    public Transform rockStackPoint;
+    public GameObject rockItemPrefab;
+    public int maxCarryRocks = 10;
+    public float rockStackVerticalSpacing = 0.05f;
+
+    [Header("Handcuff Stack")]
+    public Transform handcuffStackPoint;
+    public GameObject handcuffStackPrefab;
+    public int maxCarryHandcuffs = 20;
+    public float handcuffStackVerticalSpacing = 0.05f;
+
     [Header("Max Indicator")]
     public GameObject maxIndicatorPrefab;                // 머리 위 표시 프리팹
     public Vector3 maxIndicatorLocalOffset = new Vector3(0f, 2.0f, 0f);
@@ -41,6 +53,12 @@ public class PlayerController : MonoBehaviour
     private int carriedMoney = 0;
     private GameObject[] moneyStack;
 
+    private int carriedRocks = 0;
+    private GameObject[] rockStack;
+
+    private int carriedHandcuffs = 0;
+    private GameObject[] handcuffStack;
+
     // Max indicator 인스턴스 및 코루틴 참조 (단발 재생용)
     private GameObject maxIndicatorInstance;
     private Coroutine maxIndicatorCoroutine;
@@ -51,7 +69,9 @@ public class PlayerController : MonoBehaviour
         joystick = FindObjectOfType<Joystick>();
         mainCam = Camera.main;
 
-        moneyStack = new GameObject[maxCarryMoney];
+        moneyStack    = new GameObject[maxCarryMoney];
+        rockStack     = new GameObject[maxCarryRocks];
+        handcuffStack = new GameObject[maxCarryHandcuffs];
 
         // Max indicator 프리팹을 자식으로 생성해두고 비활성화
         if (maxIndicatorPrefab != null)
@@ -282,4 +302,100 @@ public class PlayerController : MonoBehaviour
     }
 
     public int CarriedMoney => carriedMoney;
+
+    // ── Rock 관련 ──────────────────────────────────
+    public bool PickupRock(int count)
+    {
+        if (carriedRocks >= maxCarryRocks)
+        {
+            PlayMaxIndicatorOnce();
+            return false;
+        }
+        carriedRocks = Mathf.Min(carriedRocks + count, maxCarryRocks);
+        RefreshRockStack();
+        return true;
+    }
+
+    // 교환 존에서 돌을 소비할 때 호출 — 성공 시 true 반환
+    public bool UseCarriedRock(int count = 1)
+    {
+        if (carriedRocks < count) return false;
+        carriedRocks -= count;
+        RefreshRockStack();
+        return true;
+    }
+
+    void RefreshRockStack()
+    {
+        for (int i = 0; i < maxCarryRocks; i++)
+        {
+            if (rockStack[i] != null) Destroy(rockStack[i]);
+            rockStack[i] = null;
+        }
+        if (rockItemPrefab == null || rockStackPoint == null) return;
+
+        float spacing = Mathf.Max(0.01f, rockStackVerticalSpacing);
+        var prefabRenderer = rockItemPrefab.GetComponentInChildren<Renderer>();
+        if (prefabRenderer != null)
+        {
+            float h = prefabRenderer.bounds.size.y;
+            if (h > 0f) spacing = Mathf.Max(spacing, h * 0.9f);
+        }
+
+        for (int i = 0; i < carriedRocks; i++)
+        {
+            GameObject go = Instantiate(rockItemPrefab, rockStackPoint);
+            go.transform.localRotation = Quaternion.identity;
+            go.transform.localScale    = Vector3.one;
+            go.transform.localPosition = new Vector3(0f, spacing * i, 0f);
+            rockStack[i] = go;
+        }
+    }
+
+    public int CarriedRocks => carriedRocks;
+
+    // ── Handcuff 관련 ───────────────────────────────
+    public void AddHandcuffToCarry(int count = 1)
+    {
+        carriedHandcuffs = Mathf.Min(carriedHandcuffs + count, maxCarryHandcuffs);
+        RefreshHandcuffStack();
+    }
+
+    // 배분 존에서 수갑을 소비할 때 호출 — 성공 시 true 반환
+    public bool UseCarriedHandcuff(int count = 1)
+    {
+        if (carriedHandcuffs < count) return false;
+        carriedHandcuffs -= count;
+        RefreshHandcuffStack();
+        return true;
+    }
+
+    void RefreshHandcuffStack()
+    {
+        for (int i = 0; i < maxCarryHandcuffs; i++)
+        {
+            if (handcuffStack[i] != null) Destroy(handcuffStack[i]);
+            handcuffStack[i] = null;
+        }
+        if (handcuffStackPrefab == null || handcuffStackPoint == null) return;
+
+        float spacing = Mathf.Max(0.01f, handcuffStackVerticalSpacing);
+        var prefabRenderer = handcuffStackPrefab.GetComponentInChildren<Renderer>();
+        if (prefabRenderer != null)
+        {
+            float h = prefabRenderer.bounds.size.y;
+            if (h > 0f) spacing = Mathf.Max(spacing, h * 0.9f);
+        }
+
+        for (int i = 0; i < carriedHandcuffs; i++)
+        {
+            GameObject go = Instantiate(handcuffStackPrefab, handcuffStackPoint);
+            go.transform.localRotation = Quaternion.identity;
+            go.transform.localScale    = Vector3.one;
+            go.transform.localPosition = new Vector3(0f, spacing * i, 0f);
+            handcuffStack[i] = go;
+        }
+    }
+
+    public int CarriedHandcuffs => carriedHandcuffs;
 }

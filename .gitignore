@@ -119,6 +119,9 @@ Obj/
 .vscode/
 .vsconfig
 
+# Claude Code local settings
+.claude/
+
 # Nested Unity Project Ignore
 **/Library/
 **/Temp/

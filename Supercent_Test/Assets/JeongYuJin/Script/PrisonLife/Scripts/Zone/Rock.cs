@@ -10,6 +10,10 @@ public class Rock : MonoBehaviour
     [Header("Drop")]
     // 떨어뜨릴 돈 묶음 수 (Player.PickupMoney의 인자)
     public int moneyDropAmount = 1;
+    // 부서질 때 스폰할 돌 아이템 프리팹 및 갯수
+    public GameObject rockItemPrefab;
+    public int rockDropCount = 1;
+    public float rockScatterRadius = 0.4f;
     // 플레이어에게 줄 최대 탐지 반경 (근처 플레이어에게 우선 지급)
     public float pickupRadius = 3f;
 
@@ -104,6 +108,19 @@ public class Rock : MonoBehaviour
             {
                 GameManager.Instance.AddMoney(moneyDropAmount * 10);
                 UIManager.Instance?.ShowMoneyPopup(transform.position + Vector3.up * 1f, moneyDropAmount * 10);
+            }
+        }
+
+        // 돌 아이템 스폰 (플레이어가 밟아서 수집)
+        if (rockItemPrefab != null)
+        {
+            for (int i = 0; i < rockDropCount; i++)
+            {
+                Vector3 scatter = new Vector3(
+                    Random.Range(-rockScatterRadius, rockScatterRadius),
+                    0.1f,
+                    Random.Range(-rockScatterRadius, rockScatterRadius));
+                Instantiate(rockItemPrefab, transform.position + scatter, Quaternion.identity);
             }
         }
 
