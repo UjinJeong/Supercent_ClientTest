@@ -240,7 +240,6 @@ public class PlayerController : MonoBehaviour
         {
             GameObject go = Instantiate(handcuffBundlePrefab, stackRoot);
             go.transform.localRotation = Quaternion.identity;
-            go.transform.localScale    = Vector3.one;
             go.transform.localPosition = new Vector3(0f, spacing * i, 0f);
             handcuffStack[i] = go;
         }
