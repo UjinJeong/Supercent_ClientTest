@@ -1,138 +1,156 @@
-# Prison Life - Unity 2022.3.62f2 씬 구성 가이드
+# Prison Life - 스크립트 구현 현황 (2026-05-21 기준)
 
-## 📁 스크립트 파일 목록
+## 📁 실제 구현된 스크립트 목록
 
 ```
-Scripts/
+JeongYuJin/Script/
 ├── Manager/
-│   └── GameManager.cs          ← 전체 게임 상태 (돈, 죄수, 수갑)
+│   └── GameManager.cs              ← 싱글톤 / 돈 관리 / 이벤트
 ├── Player/
-│   ├── PlayerController.cs     ← 이동 + 채굴 + 돈 스택
-│   └── Joystick.cs             ← 모바일 가상 조이스틱
-├── NPC/
-│   ├── Prisoner.cs             ← 죄수 AI (Free / Arrested / Working)
-│   └── PrisonerSpawner.cs      ← 죄수 스폰 관리
+│   └── PlayerController.cs         ← 이동 + 채굴 + 돌 스택 + 수갑 스택 + MAX 인디케이터
 ├── Zone/
-│   ├── Rock.cs                 ← 채굴 가능한 바위
-│   └── Zones.cs                ← MoneyDepositZone / HandcuffPickupZone
-│                                   / ArrestZone / UpgradeZone
+│   ├── Rock.cs                     ← 채굴 바위 (데미지 / 파괴 / 리스폰)
+│   ├── HandcuffZone.cs             ← 돌 → 수갑 변환 존
+│   └── HandcuffMoneyZone.cs        ← 수갑 → 돈 변환 존
 ├── UI/
-│   ├── UIManager.cs            ← HUD (돈, 죄수 카운터, 수갑)
-│   └── MoneyPopup.cs           ← "+숫자" 팝업 애니메이션
+│   ├── UIManager.cs                ← HUD + 조이스틱 참조 + 오디오 토글
+│   ├── Joystick.cs                 ← 가상 조이스틱 (IPointerDownHandler)
+│   └── WorldToScreenBillboard.cs   ← 월드 → 스크린 UI 추적
 └── Core/
-    └── CameraFollow.cs         ← 아이소메트릭 카메라 추적
+    └── CameraFollow.cs             ← 아이소메트릭 카메라 추적
 ```
 
 ---
 
-## 🗺️ 씬 구성 순서
+## 🗺️ 씬 계층 구조
 
-### 1. Managers (빈 게임오브젝트)
-- `GameManager` 컴포넌트 추가
-- `UIManager` 컴포넌트 추가
-- `PrisonerSpawner` 컴포넌트 추가
+```
+[UI Canvas]  (Screen Space - Overlay)
+├── Joystick            ← Joystick.cs 부착 (Image + Raycast Target 필수)
+├── Audio Toggle        ← Toggle 컴포넌트 (UIManager가 코드로 관리)
+│   ├── Background      ← targetGraphic (색상 변환 대상)
+│   └── Text (TMP)      ← "Audio On" / "Audio Off" 텍스트
 
-### 2. Camera
-- Main Camera에 `CameraFollow` 추가
-- Rotation: X=45, Y=45, Z=0 (아이소메트릭)
-- Projection: Orthographic (Size: 8~10)
-- target → Player 연결
+[Manager]  (빈 게임오브젝트)
+├── UIManager           ← UIManager.cs 부착
+└── Game Managers       ← GameManager.cs 부착
 
-### 3. Player
-```
-Player (GameObject)
-├── CharacterController (R=0.3, H=1.8)
-├── PlayerController 스크립트
-├── Animator (humanoid rig)
-└── MoneyStackPoint (빈 Transform, 플레이어 앞쪽)
-```
+[Player]
+└── PlayerController.cs + CharacterController 부착
 
-### 4. 채석장 구역 (Quarry Zone)
-```
-QuarryZone (빈 게임오브젝트)
-├── Rock_01 ~ Rock_30
-│   ├── MeshFilter + MeshRenderer (검은 바위 모양)
-│   ├── Collider (Layer: Rock)
-│   └── Rock 스크립트
-└── WallFence (철조망 울타리)
-```
-- Layer 설정: 바위 오브젝트 → Layer 이름 "Rock" 생성 필요
+[Zone]
+├── HandcuffZone        ← HandcuffZone.cs + BoxCollider (IsTrigger)
+└── HandcuffMoneyZone   ← HandcuffMoneyZone.cs + BoxCollider (IsTrigger)
 
-### 5. 경찰서 구역 (Police Station)
-```
-PoliceStation (빈 게임오브젝트)
-├── Desk (책상 모델)
-├── MoneyDepositZone (BoxCollider + IsTrigger + MoneyDepositZone 스크립트)
-├── HandcuffStation
-│   └── HandcuffPickupZone (BoxCollider + IsTrigger + HandcuffPickupZone 스크립트)
-└── GuardPost (경비원 NPC 위치)
-```
-
-### 6. 감방 구역 (Cell Block)
-```
-CellBlock
-├── Cell_01 ~ Cell_20 (감방 칸)
-│   └── CellPoint (빈 Transform - 죄수 이동 목표 위치)
-└── ArrestZone (BoxCollider + IsTrigger + ArrestZone 스크립트)
-    └── cellPoints → 각 CellPoint 배열로 연결
-```
-
-### 7. 업그레이드 존
-```
-UpgradePanel_01 (BoxCollider + IsTrigger + UpgradeZone 스크립트)
-├── cost: 50
-├── upgradeName: "Mining Drill"
-└── WorldSpace UI Canvas로 비용 표시
+[Rocks]
+└── Rock_*              ← Rock.cs + Collider (Layer: Rock)
 ```
 
 ---
 
-## 🎮 UI Canvas 구성 (Screen Space - Overlay)
+## 📝 스크립트별 핵심 요약
 
-```
-Canvas (Screen Space - Overlay, 720x1280)
-├── TopBar
-│   ├── MoneyIcon (Image)
-│   └── MoneyText (TextMeshPro) ← UIManager.moneyText 연결
-├── PrisonerCounter (좌하단)
-│   └── PrisonerCountText (TextMeshPro) ← UIManager.prisonerCountText 연결
-├── HandcuffUI
-│   └── HandcuffText (TextMeshPro) ← UIManager.handcuffText 연결
-└── JoystickArea (우하단 or 좌하단)
-    ├── JoystickBackground (Image, Sprite: 원형)
-    │   └── Joystick 스크립트
-    └── JoystickHandle (Image, Sprite: 작은 원)
-```
+### GameManager.cs
+- **싱글톤** (단일 씬 구조, DontDestroyOnLoad 없음)
+- `money` 값 관리 → `AddMoney()` / `SpendMoney()`
+- `OnMoneyChanged` (System.Action<int>) 이벤트로 UI 자동 갱신
 
 ---
 
-## ⚙️ NavMesh 설정
-1. Window → AI → Navigation
-2. 바닥 오브젝트: Static → Navigation Static 체크
-3. Bake 탭 → Bake 클릭
-4. 바위, 울타리는 Not Walkable 영역으로 설정
+### UIManager.cs
+- **싱글톤** (Manager 오브젝트에 부착, Canvas 밖)
+- `GameManager.OnMoneyChanged` 구독 → `moneyText` 자동 갱신
+- 조이스틱 입력 프로퍼티 노출: `Horizontal` / `Vertical`
+- **오디오 토글 관리**
+  - Toggle ColorBlock에서 `normalColor`(ON) / `selectedColor`(OFF) 캐시
+  - 토글 클릭 시 `normalColor` 교체 + `EventSystem 디셀렉트`
+    → Unity Selected 색 고착 문제 완전 해결
+  - `audioToggleText` : ON = "Audio On" / OFF = "Audio Off" 자동 변경
+- **인스펙터 연결 항목**
+
+| 슬롯 | 연결 대상 |
+|------|-----------|
+| moneyText | UI Canvas > MoneyText (TMP) |
+| joystick | UI Canvas > Joystick |
+| audioToggle | UI Canvas > Audio Toggle |
+| audioToggleText | UI Canvas > Audio Toggle > Text (TMP) |
 
 ---
 
-## 📦 추천 무료 에셋 (Asset Store)
-
-| 에셋 | 용도 |
-|------|------|
-| Starter Assets - Mobile | 조이스틱 UI |
-| Low Poly Prison Pack (무료) | 배경 모델 |
-| Simple People Cartoon (무료) | 캐릭터 |
-| AllSky Free | 스카이박스 |
+### Joystick.cs
+- `IPointerDownHandler` / `IDragHandler` / `IPointerUpHandler` 구현
+- `Horizontal` / `Vertical` 프로퍼티 → PlayerController가 읽음
+- **반드시 UI Canvas 계층 안**에 부착 (Canvas 밖이면 포인터 이벤트 수신 불가)
 
 ---
 
-##
-사운드 - Shapeforms Audio Free Sound Effects
-( https://assetstore.unity.com/packages/audio/sound-fx/shapeforms-audio-free-sound-effects-183649 )
-## 🐛 자주 나오는 오류 해결
+### PlayerController.cs
+- **이동**: UIManager.Instance 경유 조이스틱 입력 → 카메라 기준 방향 이동 (키보드 폴백)
+- **채굴**: `Physics.OverlapSphere` → 가장 가까운 Rock에 `mineDamage` 주기적 적용
+- **돌 스택**: `PickupMoney()` / `ConsumeRock()` / `DepositMoney()` + 시각적 스택 프리팹
+- **수갑 스택**: `AddHandcuffToCarry()` / `ConsumeHandcuff()` + 시각적 스택 프리팹
+- **MAX 인디케이터**: 스택 가득 찼을 때 팝업 코루틴 애니메이션
+- `CalcSpacing()` : 프리팹 Renderer 실제 높이 기반 스택 간격 자동 계산
 
-| 오류 | 해결 |
-|------|------|
-| `NavMeshAgent` 오류 | Window → AI → Navigation → Bake |
-| `TMPro` 없음 | Package Manager → TextMeshPro 설치 |
-| Joystick 반응 없음 | Canvas에 EventSystem 있는지 확인 |
-| 캐릭터 땅에 묻힘 | CharacterController Center Y 값 조정 |
+---
+
+### Rock.cs
+- `TakeDamage(float)` → 스케일 피드백 → `IsDestroyed` 플래그
+- 파괴 시 가장 가까운 플레이어 탐색 → `PickupMoney(moneyDropAmount)` 호출
+- 일정 시간 후 리스폰 코루틴
+
+---
+
+### HandcuffZone.cs
+- **[진입]** `OnTriggerEnter` → `ExchangeRoutine` 코루틴 시작
+  - 플레이어 돌 1개 소비 → `outputPoint`에 수갑 프리팹 스폰 (List 추적)
+- **[픽업]** `Update`의 `Physics.OverlapSphere(outputPoint, pickupDistance)`
+  - 플레이어 접근 감지 → `AddHandcuffToCarry(count)` → 스폰된 수갑 전량 Destroy
+- **[퇴장]** `OnTriggerExit` → 코루틴 중지 + `player = null`
+- 스폰 시 AudioClip 재생 지원
+
+---
+
+### HandcuffMoneyZone.cs
+- **[진입]** `OnTriggerEnter` → `DepositRoutine` 코루틴 시작
+  - 수갑 1개 소비 → `outputPoint`에 수갑 스폰 → `GameManager.AddMoney(moneyPerHandcuff)`
+- **[퇴장]** `OnTriggerExit` → 코루틴 중지 + `player = null`
+- 입금 시 AudioClip 재생 지원
+
+---
+
+### CameraFollow.cs
+- `LateUpdate`에서 `target.position + offset`을 `Vector3.Lerp`로 부드럽게 추적
+- `useBounds` 옵션으로 XZ 이동 범위 제한 가능
+
+### WorldToScreenBillboard.cs
+- 월드 좌표(`worldPosition`)를 `Camera.WorldToScreenPoint`로 UI 위치에 동기화
+- `lifetime` 이후 자동 Destroy
+
+---
+
+## 🔧 주요 해결 이슈 기록
+
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| 조이스틱 미작동 | UIManager가 Canvas 밖 → IPointerDownHandler 수신 불가 | Joystick.cs를 Canvas 안 오브젝트에 분리 부착 |
+| 수갑 변환 중단 후 재발 | PickupHandcuffs 후 코루틴만 중지, player 참조가 남아있어 재진입 시 즉시 재개 | player = null 을 OnTriggerExit + PickupHandcuffs 양쪽에 적용 |
+| 픽업 거리 인식 실패 | OnTriggerExit 후 player = null → Update에서 null 참조 | 픽업을 OverlapSphere로 교체 (trigger 상태와 독립) |
+| Toggle Selected 색 고착 | 클릭 후 EventSystem이 Toggle을 Selected 상태 유지 | normalColor 교체 후 SetSelectedGameObject(null)로 디셀렉트 |
+
+---
+
+## 📦 사용 에셋 출처 (Asset Store)
+
+| 분류 | 에셋 이름 | 링크 |
+|------|-----------|------|
+| UI (조이스틱 / 버튼) | Virtual Buttons | https://assetstore.unity.com/packages/tools/input-management/virtual-buttons-200159 |
+| 오디오 | Shapeforms Audio Free Sound Effects | https://assetstore.unity.com/packages/audio/sound-fx/shapeforms-audio-free-sound-effects-183649 |
+
+---
+
+## ⚠️ 주의사항
+
+- `AudioToggle.cs` 는 더 이상 사용하지 않음 → UIManager가 오디오 토글 전담
+- Toggle의 On Value Changed 이벤트에 별도 함수 연결 불필요 (AddListener로 자동 등록)
+- HandcuffZone 픽업은 Trigger가 아닌 **OverlapSphere** 기반 → Collider 설정과 무관하게 동작
