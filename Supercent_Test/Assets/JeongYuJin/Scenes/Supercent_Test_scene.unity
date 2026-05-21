@@ -1224,6 +1224,7 @@ MonoBehaviour:
   spawnSFXVolume: 1
   exchangeInterval: 0.3
   stackSpacing: 1
+  pickupDistance: 1
 --- !u!1 &393873051
 GameObject:
   m_ObjectHideFlags: 0
@@ -1804,7 +1805,7 @@ Transform:
   m_GameObject: {fileID: 530284084}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -2.34, y: -0.5, z: 0}
+  m_LocalPosition: {x: 1.29, y: -0.5, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2416,6 +2417,10 @@ MonoBehaviour:
   moneyBundlePrefab: {fileID: 6484736714061330182, guid: 26622b70b3d222247aa8cc833f807731, type: 3}
   maxCarryMoney: 5
   moneyStackVerticalSpacing: 1
+  handcuffStackPoint: {fileID: 530284085}
+  handcuffBundlePrefab: {fileID: 7553505199586689879, guid: d20919654bd264441b74a15059169e8c, type: 3}
+  maxCarryHandcuffs: 7
+  handcuffStackVerticalSpacing: 1
   maxIndicatorPrefab: {fileID: 3550319777207624599, guid: 36f0fcf4ad906da4dbac324e955159b7, type: 3}
   maxIndicatorLocalOffset: {x: 0, y: 2, z: 0}
   maxIndicatorDuration: 0.8
@@ -2426,7 +2431,6 @@ MonoBehaviour:
   rockLayerMask:
     serializedVersion: 2
     m_Bits: 64
-  debugMining: 1
 --- !u!23 &997246934
 MeshRenderer:
   m_ObjectHideFlags: 0

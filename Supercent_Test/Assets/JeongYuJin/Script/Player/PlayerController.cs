@@ -3,7 +3,7 @@ using UnityEngine;
 using TMPro;
 
 /// <summary>
-/// 플레이어 이동, 채굴, 돌 스택, MAX 인디케이터를 담당
+/// 플레이어 이동, 채굴, 돌 스택, 수갑 스택, MAX 인디케이터를 담당
 /// </summary>
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
@@ -19,6 +19,12 @@ public class PlayerController : MonoBehaviour
     public int        maxCarryMoney      = 20;  // 최대 보유 가능 묶음 수
     public float      moneyStackVerticalSpacing = 0.05f; // 묶음 간 기본 세로 간격
 
+    [Header("수갑 스택")]
+    public Transform  handcuffStackPoint;                    // 수갑 쌓기 기준점 (비우면 돌 스택 포인트 사용)
+    public GameObject handcuffBundlePrefab;                  // 수갑 프리팹
+    public int        maxCarryHandcuffs           = 20;      // 최대 보유 가능 수갑 수
+    public float      handcuffStackVerticalSpacing = 0.1f;   // 수갑 간 세로 간격
+
     [Header("MAX 인디케이터")]
     public GameObject maxIndicatorPrefab;                                  // MAX 표시 프리팹
     public Vector3    maxIndicatorLocalOffset  = new Vector3(0f, 2f, 0f); // 머리 위 오프셋
@@ -30,7 +36,6 @@ public class PlayerController : MonoBehaviour
     public float     mineDamage   = 10f;    // 1회 타격 데미지
     public float     mineInterval = 0.5f;   // 타격 주기(초)
     public LayerMask rockLayerMask;         // 바위 레이어 마스크
-    public bool      debugMining  = false;  // 채굴 범위 디버그 선 표시 여부
 
     // ── 내부 변수 ────────────────────────────────────
     private CharacterController cc;
@@ -44,6 +49,10 @@ public class PlayerController : MonoBehaviour
     private int          carriedMoney = 0;
     private GameObject[] moneyStack;
 
+    // 수갑 스택
+    private int          carriedHandcuffs = 0;
+    private GameObject[] handcuffStack;
+
     // MAX 인디케이터
     private GameObject maxIndicatorInstance;
     private Coroutine  maxIndicatorCoroutine;
@@ -54,8 +63,9 @@ public class PlayerController : MonoBehaviour
         cc      = GetComponent<CharacterController>();
         mainCam = Camera.main;
 
-        // 돌 스택 배열 초기화
-        moneyStack = new GameObject[maxCarryMoney];
+        // 스택 배열 초기화
+        moneyStack    = new GameObject[maxCarryMoney];
+        handcuffStack = new GameObject[maxCarryHandcuffs];
 
         // MAX 인디케이터 프리팹을 플레이어 자식으로 생성 후 비활성화
         if (maxIndicatorPrefab != null)
@@ -140,9 +150,6 @@ public class PlayerController : MonoBehaviour
             mineTimer = 0f;
             targetRock.TakeDamage(mineDamage);
         }
-
-        if (debugMining)
-            Debug.DrawLine(transform.position, targetRock.transform.position, Color.red);
     }
 
     // ── 돌 스택 ──────────────────────────────────────
@@ -156,6 +163,68 @@ public class PlayerController : MonoBehaviour
         carriedMoney -= amount;
         RefreshMoneyStack();
         return true;
+    }
+
+    // ── 수갑 스택 ─────────────────────────────────────
+    /// <summary>
+    /// 수갑을 amount개 플레이어 등에 추가한다.
+    /// </summary>
+    /// <returns>성공 시 true, 가득 찼으면 false</returns>
+    public bool AddHandcuffToCarry(int amount)
+    {
+        if (carriedHandcuffs >= maxCarryHandcuffs) return false;
+        carriedHandcuffs = Mathf.Min(carriedHandcuffs + amount, maxCarryHandcuffs);
+        RefreshHandcuffStack();
+        return true;
+    }
+
+    /// <summary>수갑을 amount개 소비한다. (배포 존에서 사용)</summary>
+    /// <returns>성공 시 true, 보유량 부족 시 false</returns>
+    public bool ConsumeHandcuff(int amount)
+    {
+        if (carriedHandcuffs < amount) return false;
+        carriedHandcuffs -= amount;
+        RefreshHandcuffStack();
+        return true;
+    }
+
+    /// <summary>현재 보유 수갑 수</summary>
+    public int CarriedHandcuffs => carriedHandcuffs;
+
+    /// <summary>등에 쌓인 수갑 오브젝트를 현재 상태에 맞게 재생성</summary>
+    void RefreshHandcuffStack()
+    {
+        // 기존 수갑 오브젝트 전부 제거
+        for (int i = 0; i < maxCarryHandcuffs; i++)
+        {
+            if (handcuffStack[i] != null) Destroy(handcuffStack[i]);
+            handcuffStack[i] = null;
+        }
+
+        if (handcuffBundlePrefab == null) return;
+
+        // 기준점: handcuffStackPoint가 없으면 moneyStackPoint 사용
+        Transform stackRoot = handcuffStackPoint != null ? handcuffStackPoint : moneyStackPoint;
+        if (stackRoot == null) return;
+
+        float spacing = Mathf.Max(0.01f, handcuffStackVerticalSpacing);
+
+        // 프리팹 실제 높이로 간격 보정
+        var prefabRenderer = handcuffBundlePrefab.GetComponentInChildren<Renderer>();
+        if (prefabRenderer != null)
+        {
+            float h = prefabRenderer.bounds.size.y;
+            if (h > 0f) spacing = Mathf.Max(spacing, h * 0.9f);
+        }
+
+        // 아래에서 위로 수갑 쌓기
+        for (int i = 0; i < carriedHandcuffs; i++)
+        {
+            GameObject go = Instantiate(handcuffBundlePrefab, stackRoot);
+            go.transform.localRotation = Quaternion.identity;
+            go.transform.localPosition = new Vector3(0f, spacing * i, 0f);
+            handcuffStack[i] = go;
+        }
     }
 
     /// <summary>
