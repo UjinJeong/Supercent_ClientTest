@@ -3,7 +3,7 @@ using UnityEngine;
 using TMPro;
 
 /// <summary>
-/// 플레이어 이동, 채굴, 돈 스택 시각화, MAX 인디케이터를 담당
+/// 플레이어 이동, 채굴, 돌 스택, MAX 인디케이터를 담당
 /// </summary>
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
@@ -13,24 +13,24 @@ public class PlayerController : MonoBehaviour
     public float moveSpeed     = 5f;    // 이동 속도
     public float rotationSpeed = 10f;   // 회전 보간 속도
 
-    [Header("돈 스택")]
+    [Header("돌 스택")]
     public Transform  moneyStackPoint;          // 플레이어 등 위의 스택 기준점
-    public GameObject moneyBundlePrefab;        // 돈 묶음 프리팹
+    public GameObject moneyBundlePrefab;        // 돌 묶음 프리팹
     public int        maxCarryMoney      = 20;  // 최대 보유 가능 묶음 수
     public float      moneyStackVerticalSpacing = 0.05f; // 묶음 간 기본 세로 간격
 
     [Header("MAX 인디케이터")]
-    public GameObject maxIndicatorPrefab;                               // MAX 표시 프리팹
-    public Vector3    maxIndicatorLocalOffset   = new Vector3(0f, 2f, 0f); // 머리 위 오프셋
-    public float      maxIndicatorDuration      = 0.8f;                 // 표시 지속 시간(초)
-    public float      maxIndicatorRiseDistance  = 0.6f;                 // 위로 떠오르는 거리
+    public GameObject maxIndicatorPrefab;                                  // MAX 표시 프리팹
+    public Vector3    maxIndicatorLocalOffset  = new Vector3(0f, 2f, 0f); // 머리 위 오프셋
+    public float      maxIndicatorDuration     = 0.8f;                    // 표시 지속 시간(초)
+    public float      maxIndicatorRiseDistance = 0.6f;                    // 위로 떠오르는 거리
 
     [Header("채굴")]
-    public float    mineRange    = 2f;      // 채굴 감지 반경
-    public float    mineDamage   = 10f;     // 1회 타격 데미지
-    public float    mineInterval = 0.5f;    // 타격 주기(초)
+    public float     mineRange    = 2f;     // 채굴 감지 반경
+    public float     mineDamage   = 10f;    // 1회 타격 데미지
+    public float     mineInterval = 0.5f;   // 타격 주기(초)
     public LayerMask rockLayerMask;         // 바위 레이어 마스크
-    public bool     debugMining  = false;   // 채굴 범위 디버그 선 표시 여부
+    public bool      debugMining  = false;  // 채굴 범위 디버그 선 표시 여부
 
     // ── 내부 변수 ────────────────────────────────────
     private CharacterController cc;
@@ -40,7 +40,7 @@ public class PlayerController : MonoBehaviour
     private float mineTimer  = 0f;
     private Rock  targetRock = null;
 
-    // 돈 스택
+    // 돌 스택
     private int          carriedMoney = 0;
     private GameObject[] moneyStack;
 
@@ -54,7 +54,7 @@ public class PlayerController : MonoBehaviour
         cc      = GetComponent<CharacterController>();
         mainCam = Camera.main;
 
-        // 돈 스택 배열 초기화
+        // 돌 스택 배열 초기화
         moneyStack = new GameObject[maxCarryMoney];
 
         // MAX 인디케이터 프리팹을 플레이어 자식으로 생성 후 비활성화
@@ -145,9 +145,21 @@ public class PlayerController : MonoBehaviour
             Debug.DrawLine(transform.position, targetRock.transform.position, Color.red);
     }
 
-    // ── 돈 스택 ──────────────────────────────────────
+    // ── 돌 스택 ──────────────────────────────────────
     /// <summary>
-    /// 돈 묶음을 등에 추가한다.
+    /// 돌 묶음을 amount개 소비한다. (HandcuffZone에서 사용)
+    /// </summary>
+    /// <returns>성공 시 true, 보유량 부족 시 false</returns>
+    public bool ConsumeRock(int amount)
+    {
+        if (carriedMoney < amount) return false;
+        carriedMoney -= amount;
+        RefreshMoneyStack();
+        return true;
+    }
+
+    /// <summary>
+    /// 돌 묶음을 등에 추가한다.
     /// </summary>
     /// <returns>성공 시 true, 이미 가득 찼으면 false</returns>
     public bool PickupMoney(int amount)
@@ -163,7 +175,7 @@ public class PlayerController : MonoBehaviour
     }
 
     /// <summary>
-    /// 보유한 돈 묶음 전량을 입금하고 GameManager에 반영한다.
+    /// 보유한 돌 묶음 전량을 입금하고 GameManager에 반영한다.
     /// </summary>
     /// <returns>입금한 묶음 수</returns>
     public int DepositMoney()
@@ -175,10 +187,10 @@ public class PlayerController : MonoBehaviour
         return deposited;
     }
 
-    /// <summary>현재 보유 묶음 수</summary>
+    /// <summary>현재 보유 돌 묶음 수</summary>
     public int CarriedMoney => carriedMoney;
 
-    /// <summary>등에 쌓인 돈 묶음 오브젝트를 현재 상태에 맞게 재생성</summary>
+    /// <summary>등에 쌓인 돌 묶음 오브젝트를 현재 상태에 맞게 재생성</summary>
     void RefreshMoneyStack()
     {
         // 기존 묶음 전부 제거
@@ -232,13 +244,13 @@ public class PlayerController : MonoBehaviour
         maxIndicatorInstance.transform.localPosition = maxIndicatorLocalOffset;
         SetIndicatorAlpha(1f);
 
-        float  elapsed = 0f;
-        Vector3 from   = maxIndicatorLocalOffset;
-        Vector3 to     = maxIndicatorLocalOffset + Vector3.up * maxIndicatorRiseDistance;
+        float   elapsed = 0f;
+        Vector3 from    = maxIndicatorLocalOffset;
+        Vector3 to      = maxIndicatorLocalOffset + Vector3.up * maxIndicatorRiseDistance;
 
         // 알파를 제어할 컴포넌트 참조 캐시
-        CanvasGroup cg   = maxIndicatorInstance.GetComponent<CanvasGroup>();
-        TMP_Text    tmp  = maxIndicatorInstance.GetComponentInChildren<TMP_Text>(true);
+        CanvasGroup cg    = maxIndicatorInstance.GetComponent<CanvasGroup>();
+        TMP_Text    tmp   = maxIndicatorInstance.GetComponentInChildren<TMP_Text>(true);
         Renderer[]  rends = maxIndicatorInstance.GetComponentsInChildren<Renderer>(true);
 
         while (elapsed < maxIndicatorDuration)
@@ -272,8 +284,8 @@ public class PlayerController : MonoBehaviour
     {
         if (maxIndicatorInstance == null) return;
 
-        CanvasGroup cg   = maxIndicatorInstance.GetComponent<CanvasGroup>();
-        TMP_Text    tmp  = maxIndicatorInstance.GetComponentInChildren<TMP_Text>(true);
+        CanvasGroup cg    = maxIndicatorInstance.GetComponent<CanvasGroup>();
+        TMP_Text    tmp   = maxIndicatorInstance.GetComponentInChildren<TMP_Text>(true);
         Renderer[]  rends = maxIndicatorInstance.GetComponentsInChildren<Renderer>(true);
 
         if (cg  != null) cg.alpha = alpha;
