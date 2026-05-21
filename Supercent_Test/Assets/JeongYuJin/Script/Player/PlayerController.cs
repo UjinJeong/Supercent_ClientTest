@@ -2,54 +2,62 @@ using System.Collections;
 using UnityEngine;
 using TMPro;
 
+/// <summary>
+/// 플레이어 이동, 채굴, 돈 스택 시각화, MAX 인디케이터를 담당
+/// </summary>
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
-    [Header("Movement")]
-    public float moveSpeed = 5f;
-    public float rotationSpeed = 10f;
+    // ── 인스펙터 ─────────────────────────────────────
+    [Header("이동")]
+    public float moveSpeed     = 5f;    // 이동 속도
+    public float rotationSpeed = 10f;   // 회전 보간 속도
 
-    [Header("Money Stack")]
-    public Transform moneyStackPoint;
-    public GameObject moneyBundlePrefab;
-    public int maxCarryMoney = 20;
-    public float moneyStackVerticalSpacing = 0.05f;
+    [Header("돈 스택")]
+    public Transform  moneyStackPoint;          // 플레이어 등 위의 스택 기준점
+    public GameObject moneyBundlePrefab;        // 돈 묶음 프리팹
+    public int        maxCarryMoney      = 20;  // 최대 보유 가능 묶음 수
+    public float      moneyStackVerticalSpacing = 0.05f; // 묶음 간 기본 세로 간격
 
-    [Header("Max Indicator")]
-    public GameObject maxIndicatorPrefab;
-    public Vector3 maxIndicatorLocalOffset = new Vector3(0f, 2.0f, 0f);
-    public float maxIndicatorDuration = 0.8f;
-    public float maxIndicatorRiseDistance = 0.6f;
+    [Header("MAX 인디케이터")]
+    public GameObject maxIndicatorPrefab;                               // MAX 표시 프리팹
+    public Vector3    maxIndicatorLocalOffset   = new Vector3(0f, 2f, 0f); // 머리 위 오프셋
+    public float      maxIndicatorDuration      = 0.8f;                 // 표시 지속 시간(초)
+    public float      maxIndicatorRiseDistance  = 0.6f;                 // 위로 떠오르는 거리
 
-    [Header("Mining")]
-    public float mineRange = 2f;
-    public float mineDamage = 10f;
-    public float mineInterval = 0.5f;
-    public LayerMask rockLayerMask;
-    public bool debugMining = false;
+    [Header("채굴")]
+    public float    mineRange    = 2f;      // 채굴 감지 반경
+    public float    mineDamage   = 10f;     // 1회 타격 데미지
+    public float    mineInterval = 0.5f;    // 타격 주기(초)
+    public LayerMask rockLayerMask;         // 바위 레이어 마스크
+    public bool     debugMining  = false;   // 채굴 범위 디버그 선 표시 여부
 
-    // Internal
+    // ── 내부 변수 ────────────────────────────────────
     private CharacterController cc;
-    private Joystick joystick;
     private Camera mainCam;
 
-    private float mineTimer = 0f;
-    private Rock targetRock = null;
+    // 채굴
+    private float mineTimer  = 0f;
+    private Rock  targetRock = null;
 
-    private int carriedMoney = 0;
+    // 돈 스택
+    private int          carriedMoney = 0;
     private GameObject[] moneyStack;
 
+    // MAX 인디케이터
     private GameObject maxIndicatorInstance;
-    private Coroutine maxIndicatorCoroutine;
+    private Coroutine  maxIndicatorCoroutine;
 
+    // ── 유니티 생명주기 ──────────────────────────────
     void Start()
     {
-        cc = GetComponent<CharacterController>();
-        joystick = FindObjectOfType<Joystick>();
+        cc      = GetComponent<CharacterController>();
         mainCam = Camera.main;
 
+        // 돈 스택 배열 초기화
         moneyStack = new GameObject[maxCarryMoney];
 
+        // MAX 인디케이터 프리팹을 플레이어 자식으로 생성 후 비활성화
         if (maxIndicatorPrefab != null)
         {
             maxIndicatorInstance = Instantiate(maxIndicatorPrefab, transform);
@@ -67,6 +75,7 @@ public class PlayerController : MonoBehaviour
 
     void LateUpdate()
     {
+        // MAX 인디케이터가 활성화 중일 때 항상 카메라를 향하도록 회전
         if (maxIndicatorInstance != null && maxIndicatorInstance.activeSelf && mainCam != null)
         {
             Vector3 dir = maxIndicatorInstance.transform.position - mainCam.transform.position;
@@ -75,39 +84,45 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    // ── 이동 ─────────────────────────────────────────
     void HandleMovement()
     {
+        // 조이스틱 우선, 없으면 키보드 입력 사용
         Vector2 input = Vector2.zero;
-        if (joystick != null) input = new Vector2(joystick.Horizontal, joystick.Vertical);
-        if (input.magnitude < 0.1f) input = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"));
+        if (UIManager.Instance != null)
+            input = new Vector2(UIManager.Instance.Horizontal, UIManager.Instance.Vertical);
+        if (input.magnitude < 0.1f)
+            input = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"));
         if (input.magnitude > 1f) input.Normalize();
 
-        Vector3 camForward = mainCam.transform.forward;
-        Vector3 camRight = mainCam.transform.right;
-        camForward.y = 0f; camForward.Normalize();
-        camRight.y = 0f; camRight.Normalize();
+        // 카메라 방향 기준으로 이동 방향 계산 (y축 제거)
+        Vector3 camForward = mainCam.transform.forward; camForward.y = 0f; camForward.Normalize();
+        Vector3 camRight   = mainCam.transform.right;   camRight.y   = 0f; camRight.Normalize();
+        Vector3 moveDir    = camForward * input.y + camRight * input.x;
 
-        Vector3 moveDir = (camForward * input.y + camRight * input.x);
-
+        // 이동 방향이 있을 때만 회전 보간
         if (moveDir.magnitude > 0.1f)
         {
             Quaternion targetRot = Quaternion.LookRotation(moveDir);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
         }
 
+        // 중력 적용 후 이동
         moveDir.y = -9.81f;
         cc.Move(moveDir * moveSpeed * Time.deltaTime);
     }
 
+    // ── 채굴 ─────────────────────────────────────────
     void HandleMining()
     {
-        Collider[] hits;
-        if (rockLayerMask != 0) hits = Physics.OverlapSphere(transform.position, mineRange, rockLayerMask);
-        else hits = Physics.OverlapSphere(transform.position, mineRange);
+        // 주변 바위 탐색 (레이어 마스크 미설정 시 전체 탐색)
+        Collider[] hits = rockLayerMask != 0
+            ? Physics.OverlapSphere(transform.position, mineRange, rockLayerMask)
+            : Physics.OverlapSphere(transform.position, mineRange);
 
+        // 가장 가까운 바위를 타겟으로 선정
         targetRock = null;
         float closest = float.MaxValue;
-
         foreach (var h in hits)
         {
             Rock r = h.GetComponent<Rock>();
@@ -118,6 +133,7 @@ public class PlayerController : MonoBehaviour
 
         if (targetRock == null) { mineTimer = 0f; return; }
 
+        // 타격 주기마다 데미지 적용
         mineTimer += Time.deltaTime;
         if (mineTimer >= mineInterval)
         {
@@ -129,13 +145,16 @@ public class PlayerController : MonoBehaviour
             Debug.DrawLine(transform.position, targetRock.transform.position, Color.red);
     }
 
-    // ── Money Stack ─────────────────────────────────
-    // 반환값: 성공(true) / 실패(가득참 → false)
+    // ── 돈 스택 ──────────────────────────────────────
+    /// <summary>
+    /// 돈 묶음을 등에 추가한다.
+    /// </summary>
+    /// <returns>성공 시 true, 이미 가득 찼으면 false</returns>
     public bool PickupMoney(int amount)
     {
         if (carriedMoney >= maxCarryMoney)
         {
-            PlayMaxIndicatorOnce();
+            PlayMaxIndicatorOnce(); // 가득 찼음을 시각적으로 알림
             return false;
         }
         carriedMoney = Mathf.Min(carriedMoney + amount, maxCarryMoney);
@@ -143,24 +162,35 @@ public class PlayerController : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// 보유한 돈 묶음 전량을 입금하고 GameManager에 반영한다.
+    /// </summary>
+    /// <returns>입금한 묶음 수</returns>
     public int DepositMoney()
     {
         int deposited = carriedMoney;
-        carriedMoney = 0;
+        carriedMoney  = 0;
         RefreshMoneyStack();
-        GameManager.Instance.AddMoney(deposited * 10);
+        GameManager.Instance.AddMoney(deposited * 10); // 묶음 1개 = 10원
         return deposited;
     }
 
+    /// <summary>현재 보유 묶음 수</summary>
+    public int CarriedMoney => carriedMoney;
+
+    /// <summary>등에 쌓인 돈 묶음 오브젝트를 현재 상태에 맞게 재생성</summary>
     void RefreshMoneyStack()
     {
+        // 기존 묶음 전부 제거
         for (int i = 0; i < maxCarryMoney; i++)
         {
             if (moneyStack[i] != null) Destroy(moneyStack[i]);
             moneyStack[i] = null;
         }
+
         if (moneyBundlePrefab == null || moneyStackPoint == null) return;
 
+        // 프리팹 실제 높이를 간격으로 사용 (설정값보다 크면 높이 우선)
         float spacing = Mathf.Max(0.01f, moneyStackVerticalSpacing);
         var prefabRenderer = moneyBundlePrefab.GetComponentInChildren<Renderer>();
         if (prefabRenderer != null)
@@ -169,22 +199,24 @@ public class PlayerController : MonoBehaviour
             if (h > 0f) spacing = Mathf.Max(spacing, h * 0.9f);
         }
 
+        // 보유 개수만큼 아래에서 위로 쌓기
         for (int i = 0; i < carriedMoney; i++)
         {
             GameObject go = Instantiate(moneyBundlePrefab, moneyStackPoint);
             go.transform.localRotation = Quaternion.identity;
-            go.transform.localScale = Vector3.one;
+            go.transform.localScale    = Vector3.one;
             go.transform.localPosition = new Vector3(0f, spacing * i, 0f);
             moneyStack[i] = go;
         }
     }
 
-    public int CarriedMoney => carriedMoney;
-
-    // ── Max Indicator ────────────────────────────────
+    // ── MAX 인디케이터 ───────────────────────────────
+    /// <summary>MAX 인디케이터 애니메이션을 (재)시작한다</summary>
     public void PlayMaxIndicatorOnce()
     {
         if (maxIndicatorInstance == null) return;
+
+        // 이미 재생 중이면 중단 후 재시작
         if (maxIndicatorCoroutine != null)
         {
             StopCoroutine(maxIndicatorCoroutine);
@@ -193,30 +225,34 @@ public class PlayerController : MonoBehaviour
         maxIndicatorCoroutine = StartCoroutine(AnimateMaxIndicator());
     }
 
+    /// <summary>위로 떠오르면서 페이드 아웃되는 MAX 인디케이터 애니메이션</summary>
     IEnumerator AnimateMaxIndicator()
     {
         maxIndicatorInstance.SetActive(true);
         maxIndicatorInstance.transform.localPosition = maxIndicatorLocalOffset;
-        ResetIndicatorAlpha();
+        SetIndicatorAlpha(1f);
 
-        float elapsed = 0f;
-        Vector3 from = maxIndicatorLocalOffset;
-        Vector3 to   = maxIndicatorLocalOffset + Vector3.up * maxIndicatorRiseDistance;
+        float  elapsed = 0f;
+        Vector3 from   = maxIndicatorLocalOffset;
+        Vector3 to     = maxIndicatorLocalOffset + Vector3.up * maxIndicatorRiseDistance;
 
+        // 알파를 제어할 컴포넌트 참조 캐시
         CanvasGroup cg   = maxIndicatorInstance.GetComponent<CanvasGroup>();
-        TMP_Text tmp     = maxIndicatorInstance.GetComponentInChildren<TMP_Text>(true);
-        Renderer[] rends = maxIndicatorInstance.GetComponentsInChildren<Renderer>(true);
+        TMP_Text    tmp  = maxIndicatorInstance.GetComponentInChildren<TMP_Text>(true);
+        Renderer[]  rends = maxIndicatorInstance.GetComponentsInChildren<Renderer>(true);
 
         while (elapsed < maxIndicatorDuration)
         {
             elapsed += Time.deltaTime;
             float t     = Mathf.Clamp01(elapsed / maxIndicatorDuration);
             float eased = Mathf.SmoothStep(0f, 1f, t);
-            float alpha = 1f - t;
+            float alpha = 1f - t; // 시간이 지날수록 투명해짐
 
+            // 위치 보간
             maxIndicatorInstance.transform.localPosition = Vector3.LerpUnclamped(from, to, eased);
 
-            if (cg != null) cg.alpha = alpha;
+            // 알파 적용 (CanvasGroup / TMP_Text / Renderer 순서로 처리)
+            if (cg  != null) cg.alpha = alpha;
             if (tmp != null) { Color c = tmp.color; c.a = alpha; tmp.color = c; }
             foreach (var r in rends)
                 foreach (var mat in r.materials)
@@ -227,21 +263,23 @@ public class PlayerController : MonoBehaviour
 
         maxIndicatorInstance.SetActive(false);
         maxIndicatorInstance.transform.localPosition = maxIndicatorLocalOffset;
-        ResetIndicatorAlpha();
+        SetIndicatorAlpha(1f);
         maxIndicatorCoroutine = null;
     }
 
-    void ResetIndicatorAlpha()
+    /// <summary>인디케이터의 모든 알파값을 지정값으로 초기화</summary>
+    void SetIndicatorAlpha(float alpha)
     {
         if (maxIndicatorInstance == null) return;
-        CanvasGroup cg   = maxIndicatorInstance.GetComponent<CanvasGroup>();
-        TMP_Text tmp     = maxIndicatorInstance.GetComponentInChildren<TMP_Text>(true);
-        Renderer[] rends = maxIndicatorInstance.GetComponentsInChildren<Renderer>(true);
 
-        if (cg != null) cg.alpha = 1f;
-        if (tmp != null) { Color c = tmp.color; c.a = 1f; tmp.color = c; }
+        CanvasGroup cg   = maxIndicatorInstance.GetComponent<CanvasGroup>();
+        TMP_Text    tmp  = maxIndicatorInstance.GetComponentInChildren<TMP_Text>(true);
+        Renderer[]  rends = maxIndicatorInstance.GetComponentsInChildren<Renderer>(true);
+
+        if (cg  != null) cg.alpha = alpha;
+        if (tmp != null) { Color c = tmp.color; c.a = alpha; tmp.color = c; }
         foreach (var r in rends)
             foreach (var mat in r.materials)
-                if (mat.HasProperty("_Color")) { Color col = mat.color; col.a = 1f; mat.color = col; }
+                if (mat.HasProperty("_Color")) { Color col = mat.color; col.a = alpha; mat.color = col; }
     }
 }

@@ -1585,9 +1585,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   money: 0
-  prisonerCount: 0
-  maxPrisoners: 20
-  handcuffCount: 0
 --- !u!4 &907173278
 Transform:
   m_ObjectHideFlags: 0
@@ -1709,8 +1706,8 @@ GameObject:
   m_Component:
   - component: {fileID: 966098396}
   - component: {fileID: 966098399}
-  - component: {fileID: 966098398}
   - component: {fileID: 966098397}
+  - component: {fileID: 966098400}
   m_Layer: 5
   m_Name: Joystick
   m_TagString: Untagged
@@ -1768,22 +1765,6 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &966098398
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 966098395}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ffc094d8efeb6864abe5d518382fb2bb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  handleRange: 1
-  deadZone: 0
-  background: {fileID: 966098396}
-  handle: {fileID: 1673957205}
 --- !u!222 &966098399
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -1792,6 +1773,22 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 966098395}
   m_CullTransparentMesh: 1
+--- !u!114 &966098400
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 966098395}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a5d02ae10e93e641a44b70774895948, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  background: {fileID: 966098396}
+  handle: {fileID: 1673957205}
+  handleRange: 1
+  deadZone: 0
 --- !u!1 &997246930
 GameObject:
   m_ObjectHideFlags: 0
@@ -1880,14 +1877,6 @@ MonoBehaviour:
   moneyBundlePrefab: {fileID: 6484736714061330182, guid: 26622b70b3d222247aa8cc833f807731, type: 3}
   maxCarryMoney: 5
   moneyStackVerticalSpacing: 1
-  rockStackPoint: {fileID: 0}
-  rockItemPrefab: {fileID: 0}
-  maxCarryRocks: 10
-  rockStackVerticalSpacing: 0.05
-  handcuffStackPoint: {fileID: 0}
-  handcuffStackPrefab: {fileID: 0}
-  maxCarryHandcuffs: 20
-  handcuffStackVerticalSpacing: 0.05
   maxIndicatorPrefab: {fileID: 3550319777207624599, guid: 36f0fcf4ad906da4dbac324e955159b7, type: 3}
   maxIndicatorLocalOffset: {x: 0, y: 2, z: 0}
   maxIndicatorDuration: 0.8
@@ -3292,11 +3281,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moneyText: {fileID: 216754410}
-  moneyPopupPrefab: {fileID: 5155423534025370325, guid: 833a19e43b870b14987fb84c91d6a7ea, type: 3}
-  worldCanvas: {fileID: 0}
-  audioSource: {fileID: 907173281}
-  coinSFX: {fileID: 8300000, guid: 7ed1386224f144cc395ef91f69a202c6, type: 3}
-  armedSFX: {fileID: 8300000, guid: f0e561914ddd74b36b07b7040b6126d4, type: 3}
+  joystick: {fileID: 966098400}
 --- !u!4 &1526485623
 Transform:
   m_ObjectHideFlags: 0
