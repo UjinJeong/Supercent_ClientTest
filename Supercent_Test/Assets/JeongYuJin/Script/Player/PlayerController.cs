@@ -169,16 +169,6 @@ public class PlayerController : MonoBehaviour
         return true;
     }
 
-    /// <summary>보유 돌 전량 입금 → GameManager에 반영</summary>
-    public int DepositMoney()
-    {
-        int deposited = carriedMoney;
-        carriedMoney  = 0;
-        RefreshMoneyStack();
-        GameManager.Instance.AddMoney(deposited * 10); // 묶음 1개 = 10원
-        return deposited;
-    }
-
     void RefreshMoneyStack()
     {
         for (int i = 0; i < maxCarryMoney; i++)
@@ -189,7 +179,7 @@ public class PlayerController : MonoBehaviour
 
         if (moneyBundlePrefab == null || moneyStackPoint == null) return;
 
-        float spacing = CalcSpacing(moneyBundlePrefab, moneyStackVerticalSpacing);
+        float spacing = StackUtils.CalcSpacing(moneyBundlePrefab, moneyStackVerticalSpacing);
         for (int i = 0; i < carriedMoney; i++)
         {
             GameObject go = Instantiate(moneyBundlePrefab, moneyStackPoint);
@@ -235,7 +225,7 @@ public class PlayerController : MonoBehaviour
         Transform stackRoot = handcuffStackPoint != null ? handcuffStackPoint : moneyStackPoint;
         if (stackRoot == null) return;
 
-        float spacing = CalcSpacing(handcuffBundlePrefab, handcuffStackVerticalSpacing);
+        float spacing = StackUtils.CalcSpacing(handcuffBundlePrefab, handcuffStackVerticalSpacing);
         for (int i = 0; i < carriedHandcuffs; i++)
         {
             GameObject go = Instantiate(handcuffBundlePrefab, stackRoot);
@@ -245,15 +235,6 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    /// <summary>프리팹 실제 높이를 반영한 스택 간격 계산</summary>
-    float CalcSpacing(GameObject prefab, float baseSpacing)
-    {
-        float spacing = Mathf.Max(0.01f, baseSpacing);
-        var r = prefab.GetComponentInChildren<Renderer>();
-        if (r != null && r.bounds.size.y > 0f)
-            spacing = Mathf.Max(spacing, r.bounds.size.y * 0.9f);
-        return spacing;
-    }
     #endregion
 
     #region MAX 인디케이터

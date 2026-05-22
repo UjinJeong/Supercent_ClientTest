@@ -47,21 +47,8 @@ public class PrisonerZone : MonoBehaviour
     #region 생명주기
     void Start()
     {
-        cachedMoneySpacing = CalcSpacing(moneyPrefab, moneyStackSpacing);
+        cachedMoneySpacing = StackUtils.CalcSpacing(moneyPrefab, moneyStackSpacing);
         StartCoroutine(SpawnLoop());
-    }
-    #endregion
-
-    #region 간격 계산
-    /// <summary>프리팹 Renderer 실제 높이를 반영한 스택 간격 계산</summary>
-    float CalcSpacing(GameObject prefab, float baseSpacing)
-    {
-        float spacing = Mathf.Max(0.01f, baseSpacing);
-        if (prefab == null) return spacing;
-        var r = prefab.GetComponentInChildren<Renderer>();
-        if (r != null && r.bounds.size.y > 0f)
-            spacing = Mathf.Max(spacing, r.bounds.size.y * 0.9f);
-        return spacing;
     }
     #endregion
 
@@ -104,29 +91,32 @@ public class PrisonerZone : MonoBehaviour
         if (prisoner == null) { Destroy(go); activePrisoners--; yield break; }
 
         prisoner.SetDemand(demand);
+        prisoner.SetState(PrisonerState.Walking);
 
-        // 1. 테이블 앞으로 이동
-        //    isTableOccupied == true인 동안 WalkTo 내부에서 자동 정지
+        // 1. 테이블 앞으로 이동 — isTableOccupied 동안 WalkTo 내부에서 자동 정지
         float   offset   = Random.Range(-tablePosSpread, tablePosSpread);
         Vector3 tablePos = tablePoint.position + tablePoint.right * offset;
         yield return StartCoroutine(prisoner.WalkTo(tablePos, () => isTableOccupied));
 
-        // 도착 후 테이블이 비워질 때까지 대기 (다른 수감자가 먼저 점유 중일 수 있음)
+        // 도착 후 테이블이 비워질 때까지 대기
+        prisoner.SetState(PrisonerState.WaitingForTable);
         yield return new WaitUntil(() => !isTableOccupied);
-        isTableOccupied = true; // 테이블 점유
+        isTableOccupied = true;
+        prisoner.SetState(PrisonerState.Processing);
 
         // 2. 수갑 1개씩 소비 — 수갑 없으면 생길 때까지 제자리 대기
         int remaining = demand;
         while (remaining > 0)
         {
-            // 수갑이 없으면 대기 (수감자 정지, UI "..." 표시)
             if (handcuffTable.HandcuffCount <= 0)
             {
+                prisoner.SetState(PrisonerState.WaitingForHandcuffs);
                 prisoner.SetWaiting(true);
                 yield return new WaitUntil(() => handcuffTable != null
                                               && handcuffTable.HandcuffCount > 0);
                 prisoner.SetWaiting(false);
-                prisoner.UpdateDemand(remaining); // 숫자 복원
+                prisoner.SetState(PrisonerState.Processing);
+                prisoner.UpdateDemand(remaining);
             }
 
             yield return new WaitForSeconds(handcuffConsumeInterval);
@@ -139,7 +129,8 @@ public class PrisonerZone : MonoBehaviour
         }
 
         // 3. 처리 완료 — 테이블 해제 + UI 숨김 + 색상 변환
-        isTableOccupied = false; // 다음 수감자 진입 허용
+        isTableOccupied = false;
+        prisoner.SetState(PrisonerState.Served);
         prisoner.HideDemandUI();
         prisoner.ApplyProcessedColor();
 
@@ -151,6 +142,7 @@ public class PrisonerZone : MonoBehaviour
         GameManager.Instance.AddMoney(moneyPerPrisoner);
 
         // 5. 퇴장 후 Destroy
+        prisoner.SetState(PrisonerState.Leaving);
         yield return StartCoroutine(prisoner.Leave());
 
         activePrisoners--;

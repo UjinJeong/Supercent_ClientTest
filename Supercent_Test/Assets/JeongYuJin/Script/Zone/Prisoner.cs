@@ -2,10 +2,21 @@ using System.Collections;
 using UnityEngine;
 using TMPro;
 
+/// <summary>수감자 현재 처리 단계 — Inspector에서 실시간 확인 가능</summary>
+public enum PrisonerState
+{
+    Walking,             // 테이블로 이동 중
+    WaitingForTable,     // 테이블 앞 대기 (다른 수감자 점유 중)
+    Processing,          // 수갑 소비 중
+    WaitingForHandcuffs, // 수갑 보충 대기
+    Served,              // 처리 완료
+    Leaving              // 퇴장 중
+}
+
 /// <summary>
 /// 수감자 개체 — 이동 / 수갑 요구 UI / 색상 변환 / 퇴장
 /// [부착 위치] Prisoner 프리팹 루트
-/// PrisonerZone이 코루틴을 순서대로 호출해 제어한다
+/// PrisonerZone이 코루틴을 순서대로 호출하며 SetState()로 상태를 전환한다
 /// </summary>
 public class Prisoner : MonoBehaviour
 {
@@ -21,6 +32,16 @@ public class Prisoner : MonoBehaviour
     [Header("UI 참조")]
     public GameObject      demandUI;   // 머리 위 UI 루트 (Canvas 또는 Image)
     public TextMeshProUGUI demandText; // 요구 수갑 수 텍스트
+    #endregion
+
+    #region 상태 머신
+    [Header("현재 상태 (디버그)")]
+    [SerializeField] private PrisonerState currentState = PrisonerState.Walking;
+
+    public PrisonerState State => currentState;
+
+    /// <summary>PrisonerZone이 처리 단계마다 호출해 상태를 전환</summary>
+    public void SetState(PrisonerState newState) => currentState = newState;
     #endregion
 
     #region 생명주기

@@ -82,7 +82,7 @@ public class UIManager : MonoBehaviour
     #region HUD
     void UpdateMoney(int amount)
     {
-        if (moneyText != null) moneyText.text = amount.ToString();
+        if (moneyText != null) moneyText.text = "$ " + amount.ToString();
     }
     #endregion
 
